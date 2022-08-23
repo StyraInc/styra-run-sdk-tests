@@ -1,2 +1,3 @@
-# styra-run-sdk-common
-This repository holds unit tests across all our Styra Run SDKs.
+# styra-run-sdk-tests
+
+This repository contains unit tests for all Styra Run SDKs.
