@@ -1,42 +1,33 @@
-package get_roles
+package delete_user_binding
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/styrainc/styra-run-sdk-tests/tests/test"
 )
 
 const (
-	pathSdk  = "/roles"
-	pathMock = "/data/rbac/roles"
+	pathSdk  = "/user_bindings/%s"
+	pathMock = "/data/rbac/user_bindings/%s/%s"
 	tenant   = "acmecorp"
 	subject  = "alice"
+	user     = "cesar"
 )
 
 type imap map[string]interface{}
-type ilist []interface{}
 
-func getRoles() test.Test {
-	apiResponse := imap{
-		"result": ilist{
-			"ADMIN",
-			"VIEWER",
-		},
-	}
+func deleteUserBinding() test.Test {
+	apiResponse := imap{}
 
-	mockResponse := imap{
-		"result": ilist{
-			"ADMIN",
-			"VIEWER",
-		},
-	}
+	mockResponse := imap{}
 
 	settings := &test.Settings{
-		Name: "get-roles",
+		Name: "delete-user-binding",
 		Api: &test.Api{
 			Request: &test.Request{
-				Path:    pathSdk,
-				Method:  http.MethodGet,
+				Path:    fmt.Sprintf(pathSdk, user),
+				Method:  http.MethodDelete,
 				Cookies: test.AuthzCookie(tenant, subject),
 			},
 			Checks: []test.CheckResponse{
@@ -46,10 +37,9 @@ func getRoles() test.Test {
 		},
 		Mocks: map[string]*test.Mock{
 			test.AuthzPath: test.AuthzMock(tenant, subject, true),
-			pathMock: {
+			fmt.Sprintf(pathMock, tenant, user): {
 				Checks: []test.CheckRequest{
-					test.CheckRequestMethod(http.MethodPost),
-					test.CheckRequestContentType(test.ApplicationJson),
+					test.CheckRequestMethod(http.MethodDelete),
 				},
 				Response: test.DefaultResponse(200, mockResponse),
 			},
@@ -62,7 +52,7 @@ func getRoles() test.Test {
 func New() test.Factory {
 	return func() []test.Test {
 		return []test.Test{
-			getRoles(),
+			deleteUserBinding(),
 		}
 	}
 }

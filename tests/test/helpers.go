@@ -5,10 +5,18 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 )
 
 const (
-	ApplicationJson = "application/json"
+	ContentTypeHeader = "Content-Type"
+	ApplicationJson   = "application/json"
+)
+
+var (
+	DefaultContentTypeHeader = map[string]string{
+		ContentTypeHeader: ApplicationJson,
+	}
 )
 
 func InternalServerError(w http.ResponseWriter) {
@@ -27,15 +35,6 @@ func BadRequest(w http.ResponseWriter) {
 	http.Error(w, "bad request", http.StatusBadRequest)
 }
 
-func AuthzCookie(tenant, subject string) []*http.Cookie {
-	return []*http.Cookie{
-		{
-			Name:  "user",
-			Value: fmt.Sprintf("%s / %s", tenant, subject),
-		},
-	}
-}
-
 func CheckResponseCode(code int) CheckResponse {
 	return func(response *Response) error {
 		if response.Rest.Code != code {
@@ -48,13 +47,19 @@ func CheckResponseCode(code int) CheckResponse {
 
 func CheckResponseBody(body interface{}) CheckResponse {
 	return func(response *Response) error {
-		if expected, err := json.Marshal(body); err != nil {
+		expectedBytes, expectedValue, err := remarshal(body)
+		if err != nil {
 			return err
-		} else if got, err := json.Marshal(response.Body); err != nil {
+		}
+
+		gotBytes, gotValue, err := remarshal(response.Body)
+		if err != nil {
 			return err
-		} else if string(expected) != string(got) {
-			return fmt.Errorf("response: expected body:\n\n%s\n\ngot:\n\n%s",
-				string(expected), string(got),
+		}
+
+		if !reflect.DeepEqual(expectedValue, gotValue) {
+			return fmt.Errorf("response: expected:\n\n%s\n\ngot:\n\n%s",
+				string(expectedBytes), string(gotBytes),
 			)
 		}
 
@@ -76,7 +81,7 @@ func CheckRequestMethod(method string) CheckRequest {
 
 func CheckRequestContentType(contentType string) CheckRequest {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		if headers, ok := r.Header["Content-Type"]; !ok {
+		if headers, ok := r.Header[ContentTypeHeader]; !ok {
 			UnsupportedMediaType(w)
 
 			return fmt.Errorf("request: missing content type %s", contentType)
@@ -96,32 +101,72 @@ func CheckRequestContentType(contentType string) CheckRequest {
 
 func CheckRequestBody(body interface{}) CheckRequest {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		responseData, err := ioutil.ReadAll(r.Body)
+		expectedBytes, expectedValue, err := remarshal(body)
 		if err != nil {
 			InternalServerError(w)
 			return err
 		}
 
-		var responseBody interface{}
-		if err := json.Unmarshal(responseData, &responseBody); err != nil {
+		gotBytes, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			InternalServerError(w)
+			return err
+		}
+
+		var gotValue interface{}
+		err = json.Unmarshal(gotBytes, &gotValue)
+		if err != nil {
 			BadRequest(w)
 			return err
 		}
 
-		if expected, err := json.Marshal(body); err != nil {
-			InternalServerError(w)
-			return err
-		} else if got, err := json.Marshal(responseBody); err != nil {
-			InternalServerError(w)
-			return err
-		} else if string(expected) != string(got) {
+		if !reflect.DeepEqual(expectedValue, gotValue) {
 			BadRequest(w)
 
-			return fmt.Errorf("request: expected body:\n\n%s\n\ngot:\n\n%s",
-				string(expected), string(got),
+			return fmt.Errorf("request: expected:\n\n%s\n\ngot:\n\n%s",
+				string(expectedBytes), string(gotBytes),
 			)
 		}
 
 		return nil
 	}
+}
+
+func DefaultResponse(code int, body interface{}) EmitResponse {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		if bytes, err := json.Marshal(body); err != nil {
+			InternalServerError(w)
+
+			return err
+		} else {
+			w.WriteHeader(code)
+			w.Header().Set(ContentTypeHeader, ApplicationJson)
+
+			if _, err := w.Write(bytes); err != nil {
+				InternalServerError(w)
+
+				return err
+			}
+		}
+
+		return nil
+	}
+}
+
+// To use reflect.DeepEqual safely, both values must be of the
+// same nested types. That is, even though a struct and a map
+// of keys may be "the same", they won't be when comparing. The
+// solution is to serialize to json, then serialize back out.
+func remarshal(x interface{}) ([]byte, interface{}, error) {
+	bytes, err := json.Marshal(x)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var value interface{}
+	if err := json.Unmarshal(bytes, &value); err != nil {
+		return bytes, nil, err
+	}
+
+	return bytes, value, nil
 }

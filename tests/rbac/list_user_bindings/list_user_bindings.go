@@ -1,14 +1,15 @@
-package get_roles
+package list_user_bindings
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/styrainc/styra-run-sdk-tests/tests/test"
 )
 
 const (
-	pathSdk  = "/roles"
-	pathMock = "/data/rbac/roles"
+	pathSdk  = "/user_bindings"
+	pathMock = "/data/rbac/user_bindings/%s"
 	tenant   = "acmecorp"
 	subject  = "alice"
 )
@@ -16,23 +17,55 @@ const (
 type imap map[string]interface{}
 type ilist []interface{}
 
-func getRoles() test.Test {
+func listUserBindings() test.Test {
 	apiResponse := imap{
 		"result": ilist{
-			"ADMIN",
-			"VIEWER",
+			imap{
+				"id": "alice",
+				"roles": ilist{
+					"ADMIN",
+				},
+			},
+			imap{
+				"id": "bob",
+				"roles": ilist{
+					"VIEWER",
+				},
+			},
+			imap{
+				"id": "bryan",
+				"roles": ilist{
+					"VIEWER",
+				},
+			},
+			imap{
+				"id": "emily",
+				"roles": ilist{
+					"VIEWER",
+				},
+			},
 		},
 	}
 
 	mockResponse := imap{
-		"result": ilist{
-			"ADMIN",
-			"VIEWER",
+		"result": imap{
+			"alice": ilist{
+				"ADMIN",
+			},
+			"bob": ilist{
+				"VIEWER",
+			},
+			"bryan": ilist{
+				"VIEWER",
+			},
+			"emily": ilist{
+				"VIEWER",
+			},
 		},
 	}
 
 	settings := &test.Settings{
-		Name: "get-roles",
+		Name: "list-user-bindings",
 		Api: &test.Api{
 			Request: &test.Request{
 				Path:    pathSdk,
@@ -46,10 +79,9 @@ func getRoles() test.Test {
 		},
 		Mocks: map[string]*test.Mock{
 			test.AuthzPath: test.AuthzMock(tenant, subject, true),
-			pathMock: {
+			fmt.Sprintf(pathMock, tenant): {
 				Checks: []test.CheckRequest{
-					test.CheckRequestMethod(http.MethodPost),
-					test.CheckRequestContentType(test.ApplicationJson),
+					test.CheckRequestMethod(http.MethodGet),
 				},
 				Response: test.DefaultResponse(200, mockResponse),
 			},
@@ -62,7 +94,7 @@ func getRoles() test.Test {
 func New() test.Factory {
 	return func() []test.Test {
 		return []test.Test{
-			getRoles(),
+			listUserBindings(),
 		}
 	}
 }

@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -30,11 +29,11 @@ type Api struct {
 }
 
 type CheckRequest func(w http.ResponseWriter, r *http.Request) error
+type EmitResponse func(w http.ResponseWriter, r *http.Request) error
 
 type Mock struct {
-	Checks []CheckRequest
-	Code   int
-	Body   interface{}
+	Checks   []CheckRequest
+	Response EmitResponse
 }
 
 type Settings struct {
@@ -53,6 +52,10 @@ func New(settings *Settings) Test {
 		settings: settings,
 		errors:   make([]error, 0),
 	}
+}
+
+func (t *test) Name() string {
+	return t.settings.Name
 }
 
 func (t *test) Run(host string) []error {
@@ -105,25 +108,22 @@ func (t *test) handler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if bytes, err := json.Marshal(mock.Body); err != nil {
-			t.errors = append(t.errors, err)
+		if mock.Response == nil {
+			t.errors = append(t.errors, t.missingBodyCallbackError())
 
 			InternalServerError(w)
-		} else {
-			w.WriteHeader(mock.Code)
-			w.Header().Set("Content-Type", "application/json")
-
-			if _, err := w.Write(bytes); err != nil {
-				t.errors = append(t.errors, err)
-
-				InternalServerError(w)
-			}
+		} else if err := mock.Response(w, r); err != nil {
+			t.errors = append(t.errors, err)
 		}
 	} else {
 		t.errors = append(t.errors, t.unexpectedRequestError(path))
 
 		InternalServerError(w)
 	}
+}
+
+func (t *test) missingBodyCallbackError() error {
+	return fmt.Errorf("missing body callback")
 }
 
 func (t *test) unexpectedRequestError(path string) error {

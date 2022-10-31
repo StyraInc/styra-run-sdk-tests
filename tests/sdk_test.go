@@ -5,7 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/styrainc/styra-run-sdk-tests/tests/client/batch_query"
+	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/delete_user_binding"
 	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/get_roles"
+	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/get_user_binding"
+	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/list_user_bindings"
+	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/put_user_binding"
 	"github.com/styrainc/styra-run-sdk-tests/tests/server"
 	"github.com/styrainc/styra-run-sdk-tests/tests/test"
 )
@@ -18,6 +23,11 @@ const (
 var (
 	factories = []test.Factory{
 		get_roles.New(),
+		get_user_binding.New(),
+		put_user_binding.New(),
+		delete_user_binding.New(),
+		list_user_bindings.New(),
+		batch_query.New(),
 	}
 )
 
@@ -46,7 +56,7 @@ func TestSdk(t *testing.T) {
 			server.SetTest(test)
 
 			for _, err := range test.Run(url) {
-				t.Error(err)
+				t.Errorf("%s: %v", test.Name(), err)
 			}
 		}
 	}
