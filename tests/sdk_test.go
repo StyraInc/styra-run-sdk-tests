@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/styrainc/styra-run-sdk-tests/tests/client/batch_query"
+	"github.com/styrainc/styra-run-sdk-tests/tests/client/check"
+	"github.com/styrainc/styra-run-sdk-tests/tests/client/query"
 	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/delete_user_binding"
 	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/get_roles"
 	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/get_user_binding"
@@ -23,13 +25,15 @@ const (
 
 var (
 	factories = []test.Factory{
+		query.New(),
+		check.New(),
+		batch_query.New(),
 		get_roles.New(),
+		list_user_bindings_all.New(),
+		list_user_bindings.New(),
 		get_user_binding.New(),
 		put_user_binding.New(),
 		delete_user_binding.New(),
-		list_user_bindings.New(),
-		list_user_bindings_all.New(),
-		batch_query.New(),
 	}
 )
 
