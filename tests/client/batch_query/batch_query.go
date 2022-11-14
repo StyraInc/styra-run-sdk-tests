@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	pathSdk    = "/"
+	pathSdk    = "/batch_query"
 	pathMock   = "/data_batch"
 	query      = "tickets/resolve/allow"
 	tenant     = "acmecorp"
