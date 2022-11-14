@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	pathSdk  = "/user_bindings"
+	pathSdk  = "/user_bindings_all"
 	pathMock = "/data/rbac/user_bindings/%s"
 	tenant   = "acmecorp"
 	subject  = "alice"
