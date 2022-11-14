@@ -1,26 +1,30 @@
-package put_user_binding
+package put_data
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/styrainc/styra-run-sdk-tests/tests/test"
 )
 
 const (
-	pathSdk  = "/user_bindings/%s"
-	pathMock = "/data/rbac/user_bindings/%s/%s"
-	tenant   = "acmecorp"
-	subject  = "alice"
-	user     = "cesar"
+	pathSdk  = "/data/rbac/user_bindings/acmecorp"
+	pathMock = "/data/rbac/user_bindings/acmecorp"
 )
 
 type imap map[string]interface{}
 type ilist []interface{}
 
-func putUserBinding() test.Test {
-	apiRequest := ilist{
-		"ADMIN",
+func putData() test.Test {
+	apiRequest := imap{
+		"alice": ilist{
+			"ADMIN",
+		},
+		"billy": ilist{
+			"VIEWER",
+		},
+		"bob": ilist{
+			"VIEWER",
+		},
 	}
 
 	apiResponse := imap{}
@@ -30,13 +34,12 @@ func putUserBinding() test.Test {
 	mockResponse := imap{}
 
 	settings := &test.Settings{
-		Name: "put-user-binding",
+		Name: "put-data",
 		Api: &test.Api{
 			Request: &test.Request{
-				Path:    fmt.Sprintf(pathSdk, user),
+				Path:    pathSdk,
 				Method:  http.MethodPut,
 				Headers: test.DefaultContentTypeHeader,
-				Cookies: test.AuthzCookie(tenant, subject),
 				Body:    apiRequest,
 			},
 			Checks: []test.CheckResponse{
@@ -45,8 +48,7 @@ func putUserBinding() test.Test {
 			},
 		},
 		Mocks: map[string]*test.Mock{
-			test.AuthzPath: test.AuthzMock(tenant, subject, true),
-			fmt.Sprintf(pathMock, tenant, user): {
+			pathMock: {
 				Checks: []test.CheckRequest{
 					test.CheckRequestMethod(http.MethodPut),
 					test.CheckRequestContentType(test.ApplicationJson),
@@ -63,7 +65,7 @@ func putUserBinding() test.Test {
 func New() test.Factory {
 	return func() []test.Test {
 		return []test.Test{
-			putUserBinding(),
+			putData(),
 		}
 	}
 }

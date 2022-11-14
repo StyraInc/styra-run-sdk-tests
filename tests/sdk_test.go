@@ -7,6 +7,9 @@ import (
 
 	"github.com/styrainc/styra-run-sdk-tests/tests/client/batch_query"
 	"github.com/styrainc/styra-run-sdk-tests/tests/client/check"
+	"github.com/styrainc/styra-run-sdk-tests/tests/client/delete_data"
+	"github.com/styrainc/styra-run-sdk-tests/tests/client/get_data"
+	"github.com/styrainc/styra-run-sdk-tests/tests/client/put_data"
 	"github.com/styrainc/styra-run-sdk-tests/tests/client/query"
 	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/delete_user_binding"
 	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/get_roles"
@@ -25,6 +28,9 @@ const (
 
 var (
 	factories = []test.Factory{
+		get_data.New(),
+		put_data.New(),
+		delete_data.New(),
 		query.New(),
 		check.New(),
 		batch_query.New(),
