@@ -1,4 +1,4 @@
-package list_user_bindings
+package list_user_bindings_all
 
 import (
 	"fmt"
@@ -8,22 +8,35 @@ import (
 )
 
 const (
-	pathSdk  = "/user_bindings"
+	pathSdk  = "/user_bindings_all"
 	pathMock = "/data/rbac/user_bindings/%s"
 	tenant   = "acmecorp"
 	subject  = "alice"
-	page     = 1
 )
 
 type imap map[string]interface{}
 type ilist []interface{}
 
-func listUserBindings() test.Test {
+func listUserBindingsAll() test.Test {
 	apiResponse := imap{
 		"result": ilist{
 			imap{
-				"id":    "cesar",
-				"roles": ilist{},
+				"id": "alice",
+				"roles": ilist{
+					"ADMIN",
+				},
+			},
+			imap{
+				"id": "bob",
+				"roles": ilist{
+					"VIEWER",
+				},
+			},
+			imap{
+				"id": "bryan",
+				"roles": ilist{
+					"VIEWER",
+				},
 			},
 			imap{
 				"id": "emily",
@@ -31,14 +44,6 @@ func listUserBindings() test.Test {
 					"VIEWER",
 				},
 			},
-			imap{
-				"id":    "gary",
-				"roles": ilist{},
-			},
-		},
-		"page": imap{
-			"index": 1,
-			"total": 4,
 		},
 	}
 
@@ -56,12 +61,6 @@ func listUserBindings() test.Test {
 			"emily": ilist{
 				"VIEWER",
 			},
-			"harold": ilist{
-				"VIEWER",
-			},
-			"vivian": ilist{
-				"VIEWER",
-			},
 		},
 	}
 
@@ -72,9 +71,6 @@ func listUserBindings() test.Test {
 				Path:    pathSdk,
 				Method:  http.MethodGet,
 				Cookies: test.AuthzCookie(tenant, subject),
-				Queries: map[string]string{
-					"page": fmt.Sprintf("%d", page),
-				},
 			},
 			Checks: []test.CheckResponse{
 				test.CheckResponseCode(200),
@@ -98,7 +94,7 @@ func listUserBindings() test.Test {
 func New() test.Factory {
 	return func() []test.Test {
 		return []test.Test{
-			listUserBindings(),
+			listUserBindingsAll(),
 		}
 	}
 }

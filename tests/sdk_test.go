@@ -10,6 +10,7 @@ import (
 	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/get_roles"
 	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/get_user_binding"
 	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/list_user_bindings"
+	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/list_user_bindings_all"
 	"github.com/styrainc/styra-run-sdk-tests/tests/rbac/put_user_binding"
 	"github.com/styrainc/styra-run-sdk-tests/tests/server"
 	"github.com/styrainc/styra-run-sdk-tests/tests/test"
@@ -27,6 +28,7 @@ var (
 		put_user_binding.New(),
 		delete_user_binding.New(),
 		list_user_bindings.New(),
+		list_user_bindings_all.New(),
 		batch_query.New(),
 	}
 )
