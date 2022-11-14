@@ -11,8 +11,9 @@ import (
 type Request struct {
 	Path    string
 	Method  string
-	Headers map[string]string
 	Cookies []*http.Cookie
+	Headers map[string]string
+	Queries map[string]string
 	Body    interface{}
 }
 
@@ -67,6 +68,7 @@ func (t *test) Run(host string) []error {
 		Method:  request.Method,
 		Cookies: request.Cookies,
 		Headers: request.Headers,
+		Queries: request.Queries,
 		Decoder: util.JsonDecoder(&body),
 	}
 
