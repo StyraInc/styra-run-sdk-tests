@@ -12,7 +12,7 @@ const (
 	pathMock = "/data/rbac/user_bindings/%s"
 	tenant   = "acmecorp"
 	subject  = "alice"
-	page     = 1
+	page     = 2
 )
 
 type imap map[string]interface{}
@@ -37,7 +37,7 @@ func listUserBindings() test.Test {
 			},
 		},
 		"page": imap{
-			"index": 1,
+			"index": 2,
 			"total": 4,
 		},
 	}
