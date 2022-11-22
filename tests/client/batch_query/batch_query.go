@@ -1,8 +1,11 @@
 package batch_query
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/styrainc/styra-run-sdk-tests/tests/test"
 )
@@ -13,21 +16,18 @@ const (
 	query      = "tickets/resolve/allow"
 	tenant     = "acmecorp"
 	subject    = "alice"
-	batchSize  = 30
 	batchLimit = 20
+	totalSize  = 90
 )
 
 type imap map[string]interface{}
 
 func batchQuery() test.Test {
-	apiRequestItems := make([]imap, 0)
-	for i := 0; i < batchSize; i++ {
-		apiRequestItems = append(
-			apiRequestItems,
-			imap{
-				"path": query,
-			},
-		)
+	apiRequestItems := make([]imap, totalSize)
+	for i := 0; i < totalSize; i++ {
+		apiRequestItems[i] = imap{
+			"path": query,
+		}
 	}
 
 	apiRequest := imap{
@@ -38,21 +38,18 @@ func batchQuery() test.Test {
 		},
 	}
 
-	apiResponseItems := make([]imap, 0)
-	for i := 0; i < batchSize; i++ {
-		apiResponseItems = append(
-			apiResponseItems,
-			imap{
-				"result": true,
-			},
-		)
+	apiResponseItems := make([]imap, totalSize)
+	for i := 0; i < totalSize; i++ {
+		apiResponseItems[i] = imap{
+			"result": true,
+		}
 	}
 
 	apiResponse := imap{
 		"result": apiResponseItems,
 	}
 
-	cb := newCallbacks(batchSize)
+	cb := newCallbacks()
 
 	settings := &test.Settings{
 		Name: "batch-query",
@@ -103,27 +100,46 @@ type callbacks struct {
 	Response test.EmitResponse
 }
 
-// This works by emitting the check and response functions
-// as closures that close over remaining and count. This
-// allows the callbacks to track the remaining number of
-// batches to check for and emit.
-func newCallbacks(batchSize int) *callbacks {
-	remaining := batchSize
-	count := 0
+// This sets up callbacks for checking batch requests and emitting
+// responses. Among other things, it also checks the following:
+//
+// * That each batch is well formed.
+// * That each batch respects the batch limit.
+// * That the total size is not exceeded.
+//
+// Finally, it makes these checks in a thread-safe manner as multiple
+// batch requests could be in flight at the same time.
+func newCallbacks() *callbacks {
+	var mutex sync.Mutex
+	var total int
 
 	return &callbacks{
-		Check: func(w http.ResponseWriter, r *http.Request) error {
-			if remaining <= 0 {
+		Check: func(w http.ResponseWriter, r *test.MockRequest) error {
+			count, err := getCount(r)
+			if err != nil {
 				test.BadRequest(w)
 
-				return fmt.Errorf("request: batch count exceeded")
+				return err
 			}
 
-			count = remaining
 			if count > batchLimit {
-				count = batchLimit
+				test.BadRequest(w)
+
+				return fmt.Errorf("request: batch limit exceeded")
 			}
-			remaining -= count
+
+			// Here, we must increment total in a thread-safe way.
+			// We also must make a copy when performing the check.
+			mutex.Lock()
+			total += count
+			myTotal := total
+			mutex.Unlock()
+
+			if myTotal > totalSize {
+				test.BadRequest(w)
+
+				return errors.New("request: exceeded total size")
+			}
 
 			input := &input{
 				Tenant:  tenant,
@@ -144,26 +160,37 @@ func newCallbacks(batchSize int) *callbacks {
 
 			return test.CheckRequestBody(expected)(w, r)
 		},
-		Response: func(w http.ResponseWriter, r *http.Request) error {
-			responseItems := make([]imap, 0)
-			for i := 0; i < count; i++ {
-				responseItems = append(
-					responseItems,
-					imap{
-						"result": true,
-					},
-				)
+		Response: func(w http.ResponseWriter, r *test.MockRequest) error {
+			count, err := getCount(r)
+			if err != nil {
+				return err
 			}
 
 			response := &struct {
 				Result []imap `json:"result"`
 			}{
-				Result: responseItems,
+				Result: make([]imap, count),
+			}
+
+			for i := 0; i < count; i++ {
+				response.Result[i] = imap{
+					"result": true,
+				}
 			}
 
 			return test.DefaultResponse(200, response)(w, r)
 		},
 	}
+}
+
+func getCount(r *test.MockRequest) (int, error) {
+	actual := &request{}
+
+	if err := json.Unmarshal(r.Body, &actual); err != nil {
+		return 0, err
+	}
+
+	return len(actual.Items), nil
 }
 
 func New() test.Factory {
