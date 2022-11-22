@@ -3,7 +3,9 @@ package test
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"sync"
 
 	"github.com/styrainc/styra-run-sdk-tests/util"
 )
@@ -29,8 +31,13 @@ type Api struct {
 	Checks  []CheckResponse
 }
 
-type CheckRequest func(w http.ResponseWriter, r *http.Request) error
-type EmitResponse func(w http.ResponseWriter, r *http.Request) error
+type MockRequest struct {
+	Request *http.Request
+	Body    []byte
+}
+
+type CheckRequest func(w http.ResponseWriter, r *MockRequest) error
+type EmitResponse func(w http.ResponseWriter, r *MockRequest) error
 
 type Mock struct {
 	Checks   []CheckRequest
@@ -46,6 +53,7 @@ type Settings struct {
 type test struct {
 	settings *Settings
 	errors   []error
+	mutex    sync.Mutex
 }
 
 func New(settings *Settings) Test {
@@ -98,34 +106,56 @@ func (t *test) Handler() http.HandlerFunc {
 	return t.handler
 }
 
+// Here, errors must be accumulated in a thread-safe manner as
+// multiple requests may be received in parallel in some cases.
 func (t *test) handler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.String()
 
+	bytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		t.addError(err)
+
+		InternalServerError(w)
+
+		return
+	}
+
+	mockRequest := &MockRequest{
+		Request: r,
+		Body:    bytes,
+	}
+
 	if mock, ok := t.settings.Mocks[path]; ok {
 		for _, check := range mock.Checks {
-			if err := check(w, r); err != nil {
-				t.errors = append(t.errors, err)
+			if err := check(w, mockRequest); err != nil {
+				t.addError(err)
 
 				return
 			}
 		}
 
 		if mock.Response == nil {
-			t.errors = append(t.errors, t.missingBodyCallbackError())
+			t.addError(t.missingResponseCallbackError())
 
 			InternalServerError(w)
-		} else if err := mock.Response(w, r); err != nil {
-			t.errors = append(t.errors, err)
+		} else if err := mock.Response(w, mockRequest); err != nil {
+			t.addError(err)
 		}
 	} else {
-		t.errors = append(t.errors, t.unexpectedRequestError(path))
+		t.addError(t.unexpectedRequestError(path))
 
 		InternalServerError(w)
 	}
 }
 
-func (t *test) missingBodyCallbackError() error {
-	return fmt.Errorf("missing body callback")
+func (t *test) addError(err error) {
+	t.mutex.Lock()
+	t.errors = append(t.errors, err)
+	t.mutex.Unlock()
+}
+
+func (t *test) missingResponseCallbackError() error {
+	return fmt.Errorf("missing response callback")
 }
 
 func (t *test) unexpectedRequestError(path string) error {

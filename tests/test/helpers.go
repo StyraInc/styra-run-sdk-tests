@@ -3,7 +3,6 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"reflect"
 )
@@ -68,11 +67,11 @@ func CheckResponseBody(body interface{}) CheckResponse {
 }
 
 func CheckRequestMethod(method string) CheckRequest {
-	return func(w http.ResponseWriter, r *http.Request) error {
-		if r.Method != method {
+	return func(w http.ResponseWriter, r *MockRequest) error {
+		if r.Request.Method != method {
 			MethodNotAllowed(w)
 
-			return fmt.Errorf("request: expected method %s, got %s", method, r.Method)
+			return fmt.Errorf("request: expected method %s, got %s", method, r.Request.Method)
 		}
 
 		return nil
@@ -80,8 +79,8 @@ func CheckRequestMethod(method string) CheckRequest {
 }
 
 func CheckRequestContentType(contentType string) CheckRequest {
-	return func(w http.ResponseWriter, r *http.Request) error {
-		if headers, ok := r.Header[ContentTypeHeader]; !ok {
+	return func(w http.ResponseWriter, r *MockRequest) error {
+		if headers, ok := r.Request.Header[ContentTypeHeader]; !ok {
 			UnsupportedMediaType(w)
 
 			return fmt.Errorf("request: missing content type %s", contentType)
@@ -100,18 +99,14 @@ func CheckRequestContentType(contentType string) CheckRequest {
 }
 
 func CheckRequestBody(body interface{}) CheckRequest {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(w http.ResponseWriter, r *MockRequest) error {
 		expectedBytes, expectedValue, err := remarshal(body)
 		if err != nil {
 			InternalServerError(w)
 			return err
 		}
 
-		gotBytes, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			InternalServerError(w)
-			return err
-		}
+		gotBytes := r.Body
 
 		var gotValue interface{}
 		err = json.Unmarshal(gotBytes, &gotValue)
@@ -133,7 +128,7 @@ func CheckRequestBody(body interface{}) CheckRequest {
 }
 
 func DefaultResponse(code int, body interface{}) EmitResponse {
-	return func(w http.ResponseWriter, r *http.Request) error {
+	return func(w http.ResponseWriter, r *MockRequest) error {
 		if bytes, err := json.Marshal(body); err != nil {
 			InternalServerError(w)
 
