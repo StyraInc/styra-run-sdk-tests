@@ -1,6 +1,7 @@
 package list_user_bindings
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -9,7 +10,7 @@ import (
 
 const (
 	pathSdk  = "/user_bindings"
-	pathMock = "/data/rbac/user_bindings/%s"
+	pathMock = "/data/rbac/user_bindings/%s/%s"
 	tenant   = "acmecorp"
 	subject  = "alice"
 	page     = 2
@@ -22,46 +23,26 @@ func listUserBindings() test.Test {
 	apiResponse := imap{
 		"result": ilist{
 			imap{
-				"id":    "cesar",
-				"roles": ilist{},
+				"id": "emily",
+				"roles": ilist{
+					"ADMIN",
+					"VIEWER",
+				},
 			},
 			imap{
-				"id": "emily",
+				"id": "harold",
 				"roles": ilist{
 					"VIEWER",
 				},
 			},
 			imap{
-				"id":    "gary",
+				"id":    "vivian",
 				"roles": ilist{},
 			},
 		},
 		"page": imap{
 			"index": 2,
-			"total": 4,
-		},
-	}
-
-	mockResponse := imap{
-		"result": imap{
-			"alice": ilist{
-				"ADMIN",
-			},
-			"bob": ilist{
-				"VIEWER",
-			},
-			"bryan": ilist{
-				"VIEWER",
-			},
-			"emily": ilist{
-				"VIEWER",
-			},
-			"harold": ilist{
-				"VIEWER",
-			},
-			"vivian": ilist{
-				"VIEWER",
-			},
+			"total": 2,
 		},
 	}
 
@@ -83,16 +64,52 @@ func listUserBindings() test.Test {
 		},
 		Mocks: map[string]*test.Mock{
 			test.AuthzPath: test.AuthzMock(tenant, subject, true),
-			fmt.Sprintf(pathMock, tenant): {
+			fmt.Sprintf(pathMock, tenant, "emily"): {
 				Checks: []test.CheckRequest{
 					test.CheckRequestMethod(http.MethodGet),
 				},
-				Response: test.DefaultResponse(200, mockResponse),
+				Response: bindingResponse([]string{"ADMIN", "VIEWER"}),
+			},
+			fmt.Sprintf(pathMock, tenant, "harold"): {
+				Checks: []test.CheckRequest{
+					test.CheckRequestMethod(http.MethodGet),
+				},
+				Response: bindingResponse([]string{"VIEWER"}),
+			},
+			fmt.Sprintf(pathMock, tenant, "vivian"): {
+				Checks: []test.CheckRequest{
+					test.CheckRequestMethod(http.MethodGet),
+				},
+				Response: test.DefaultResponse(404, imap{}),
 			},
 		},
 	}
 
 	return test.New(settings)
+}
+
+func bindingResponse(roles []string) test.EmitResponse {
+	return func(w http.ResponseWriter, r *test.MockRequest) error {
+		body := imap{
+			"result": roles,
+		}
+		if bytes, err := json.Marshal(body); err != nil {
+			test.InternalServerError(w)
+
+			return err
+		} else {
+			w.WriteHeader(200)
+			w.Header().Set(test.ContentTypeHeader, test.ApplicationJson)
+
+			if _, err := w.Write(bytes); err != nil {
+				test.InternalServerError(w)
+
+				return err
+			}
+		}
+
+		return nil
+	}
 }
 
 func New() test.Factory {
