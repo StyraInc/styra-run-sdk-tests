@@ -1,14 +1,7 @@
 package tests
 
 import (
-	"errors"
-	"fmt"
-	"net/http"
-	"os"
-	"os/exec"
-	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
@@ -50,60 +43,6 @@ var (
 	}
 )
 
-var sdkProcess *exec.Cmd
-
-func startSdk() bool {
-	sdkDir := os.Getenv("SDK_DIR")
-	if sdkDir == "" {
-		fmt.Println("SDK_DIR environment variable not set")
-		return false
-	}
-
-	sdkCommand := strings.Split(os.Getenv("SDK_CMD"), " ")
-	if len(sdkCommand) < 1 {
-		fmt.Println("SDK_CMD environment variable not set")
-		return false
-	}
-
-	sdkExecutable := sdkCommand[0]
-	sdkArguments := sdkCommand[1:]
-	fmt.Printf("Starting SDK at %s\n", sdkDir)
-
-	sdkProcess = exec.Command(sdkExecutable, sdkArguments...)
-	sdkProcess.Dir = sdkDir
-	if err := sdkProcess.Start(); err != nil {
-		fmt.Printf("Failed to start SDK process: %v\n", err)
-		return false
-	}
-
-	var running = false
-
-	fmt.Print("Waiting for SDK")
-	for i := 0; i < 20; i++ {
-		fmt.Print(".")
-		response, err := http.Get("http://localhost:3000/ready")
-		if err != nil && !errors.Is(err, syscall.ECONNREFUSED) {
-			break
-		}
-		if response != nil && response.StatusCode == 200 {
-			running = true
-			break
-		}
-		time.Sleep(time.Second)
-	}
-
-	fmt.Printf(" started: %v\n", running)
-
-	return running
-}
-
-func stopSdk() {
-	fmt.Println("Stopping SDK")
-	if err := sdkProcess.Process.Kill(); err != nil {
-		fmt.Printf("Failed to stop SDK process: %v\n", err)
-	}
-}
-
 func TestSdk(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -122,11 +61,7 @@ func TestSdk(t *testing.T) {
 		}
 	}()
 
-	if !startSdk() {
-		t.Error("SDK never started")
-	}
-
-	defer stopSdk()
+	time.Sleep(time.Second)
 
 	for _, factory := range factories {
 		for _, test := range factory() {
