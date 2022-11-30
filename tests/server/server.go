@@ -45,7 +45,7 @@ func (s *server) Listen() error {
 
 	s.server = &http.Server{
 		Handler: router,
-		Addr:    fmt.Sprintf(":%d", s.settings.Port),
+		Addr:    fmt.Sprintf("localhost:%d", s.settings.Port),
 	}
 
 	err := s.server.ListenAndServe()
