@@ -11,6 +11,8 @@ import (
 	"github.com/styrainc/styra-run-sdk-tests/tests/test"
 )
 
+const host = "127.0.0.1"
+
 type Gateway struct {
 	Url string `json:"gateway_url"`
 }
@@ -45,7 +47,7 @@ func (s *server) Listen() error {
 
 	s.server = &http.Server{
 		Handler: router,
-		Addr:    fmt.Sprintf("localhost:%d", s.settings.Port),
+		Addr:    fmt.Sprintf("%s:%d", host, s.settings.Port),
 	}
 
 	err := s.server.ListenAndServe()
@@ -70,7 +72,7 @@ func (s *server) gateways(w http.ResponseWriter, r *http.Request) {
 	}{
 		Result: []*Gateway{
 			{
-				Url: fmt.Sprintf("http://localhost:%d", s.settings.Port),
+				Url: fmt.Sprintf("http://%s:%d", host, s.settings.Port),
 			},
 		},
 	}
